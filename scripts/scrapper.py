@@ -1,9 +1,14 @@
 import asyncio
+import logging
 import re
 import requests
 import aiohttp
 from bs4 import BeautifulSoup
 import pandas as pd
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://books.toscrape.com/"
 
@@ -25,7 +30,7 @@ async def scrape_category_from_book_page_async(session, book_url):
             response.raise_for_status()
             html = await response.text()
     except aiohttp.ClientError as e:
-        print(f"Error fetching book detail URL {book_url}: {e}")
+        logger.error(f"Error fetching book detail URL {book_url}: {e}")
         return "N/A"
 
     soup = BeautifulSoup(html, "html.parser")
@@ -53,7 +58,7 @@ async def scrape_book_page_async(session, url):
             response.raise_for_status()
             html = await response.text()
     except aiohttp.ClientError as e:
-        print(f"Error fetching URL {url}: {e}")
+        logger.error(f"Error fetching URL {url}: {e}")
         return []
 
     soup = BeautifulSoup(html, "html.parser")
@@ -180,18 +185,19 @@ async def fill_categories_async(df):
     
     return df.drop(columns=["book_url"])
 
+if __name__ == '__main__':  
 
+    # Run the main asynchronous function
+    all_books_data_async = asyncio.run(main(creat_pages_urls()))
 
-# Run the main asynchronous function
-all_books_data_async = asyncio.run(main(creat_pages_urls()))
+    logger.info(f"Finished asynchronous scraping. Collected data for {len(all_books_data_async)} books.")
+    logger.info(all_books_data_async[0])
 
-print(f"Finished asynchronous scraping. Collected data for {len(all_books_data_async)} books.")
-print(all_books_data_async[0])
+    df_books_async = pd.DataFrame(all_books_data_async)
+    logger.info(f"Collecting category data for {len(all_books_data_async)} books.")
+    df_updated = asyncio.run(fill_categories_async(df_books_async))
 
-df_books_async = pd.DataFrame(all_books_data_async)
-df_updated = asyncio.run(fill_categories_async(df_books_async))
+    # Save the DataFrame to a single CSV file
+    df_updated.to_csv('./data/all_books.csv', index=False, header=True)
 
-# Save the DataFrame to a single CSV file
-df_updated.to_csv('all_books.csv', index=False, header=True)
-
-print(f"Data saved to all_books.csv. Total books: {len(df_updated)}")
+    logger.info(f"Data saved to all_books.csv. Total books: {len(df_updated)}")
